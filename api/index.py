@@ -5,7 +5,7 @@ import hmac
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -58,7 +58,7 @@ def review(payload: ReviewInput, token: str = Query(default="")) -> dict[str, ob
         review_text += f"\nClaimed authority: {payload.claimed_authority}"
 
     assessment = RiskClassifier.from_env().assess(review_text)
-    issued_at = datetime.now(UTC).isoformat()
+    issued_at = datetime.now(timezone.utc).isoformat()
     request_hash = hashlib.sha256(review_text.encode("utf-8")).hexdigest()
     receipt_body = {
         "decision": assessment.decision.value,
