@@ -4,6 +4,9 @@ BoundaryCraft is available through PayanAgent's x402 settlement route on Base ma
 
 ## Live offers
 
+- [Native Base USDC payment proof](https://payanagent.com/x402/kh7344v1ev4ep4x63jrqt512yh8bnw43)
+  — 0.01 USDC for live verification of chain ID, official token contract, successful receipt,
+  exact recipient/amount, confirmations, and an Ed25519-signed result.
 - [Ed25519-signed authority threat model](https://payanagent.com/x402/kh7dyz0sb8w224nwyzz5hasgah8bmsec)
   — 25 USDC for one automated, structured authority threat model with prioritized attack
   scenarios, required controls, verification tests, request/receipt hashes, and a signature
@@ -12,7 +15,7 @@ BoundaryCraft is available through PayanAgent's x402 settlement route on Base ma
   — 2.50 USDC per call for a nonce-bound, independently verifiable decision signed by key ID
   `5b5be3887dfe192f6bb2247e`.
 - [Authority risk review API](https://payanagent.com/x402/kh79kradp0mjddbktw2pjs4g418bmezn)
-  — automated action-risk triage with SHA-256 request and receipt digests.
+  — 0.01 USDC automated action-risk triage with SHA-256 request and receipt digests.
 - [Cross-channel firewall starter kit](https://payanagent.com/x402/kh79m8dn6sh3xs3t2b8kneb98h8bm6yq)
   — packaged public MIT reference implementation.
 
