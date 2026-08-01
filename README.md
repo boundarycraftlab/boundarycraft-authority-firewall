@@ -69,6 +69,8 @@ The repository also exposes a stateless FastAPI service for metered marketplace 
 - `POST /api/review?token=...` accepts `action`, optional `context`, and optional
   `claimed_authority` and `nonce` fields.
 - `POST /api/attest?token=...` returns the same review plus an Ed25519 signature.
+- `POST /api/threat-model?token=...` returns a signed, structured authority threat model for
+  one workflow, including prioritized abuse cases, required controls, and verification tests.
 - `GET /api/attestation-key` publishes the stable verification key and key ID.
 - Each successful review returns the decision, risk score, reasons, a SHA-256 request digest,
   and a SHA-256 receipt digest. The original action is not written to persistent storage.
@@ -80,6 +82,12 @@ For signed attestations, set `BOUNDARYCRAFT_ATTESTATION_PRIVATE_KEY` to the Base
 raw 32-byte Ed25519 private key. The signature covers the UTF-8 JSON result without the
 `attestation` member, serialized with sorted keys and compact separators. Consumers should pin
 the `keyId` returned by `/api/attestation-key`; the private key never leaves the service.
+
+The threat-model endpoint accepts `workflow_name`, `action`, and optional `context`,
+`claimed_authority`, `assets`, `trust_boundaries`, `controls_present`, and `nonce`. Its output is
+deterministic rules-based analysis of authorization, tampering, replay, state-change, payment,
+deployment, destructive, publication, and access risks that apply to the submitted workflow. It
+does not claim to be an exhaustive security audit, penetration test, or certification.
 
 The package includes a verifier that authenticates the payload and rejects a substituted key:
 

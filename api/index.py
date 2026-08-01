@@ -20,6 +20,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from boundarycraft.classifier import RiskClassifier  # noqa: E402
+from boundarycraft.threat_model import build_threat_model  # noqa: E402
 
 POLICY_VERSION = "boundarycraft-authority-v1"
 ATTESTATION_SCHEMA = "boundarycraft-ed25519-attestation-v1"
@@ -31,6 +32,13 @@ class ReviewInput(BaseModel):
     context: str | None = Field(default=None, max_length=3000)
     claimed_authority: str | None = Field(default=None, max_length=1000)
     nonce: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class ThreatModelInput(ReviewInput):
+    workflow_name: str = Field(min_length=1, max_length=200)
+    assets: list[str] = Field(default_factory=list, max_length=20)
+    trust_boundaries: list[str] = Field(default_factory=list, max_length=20)
+    controls_present: list[str] = Field(default_factory=list, max_length=20)
 
 
 app = FastAPI(
@@ -125,12 +133,12 @@ def _build_review(payload: ReviewInput) -> dict[str, object]:
     }
 
 
-def _sign_review(review_result: dict[str, object]) -> dict[str, object]:
+def _sign_document(document: dict[str, object]) -> dict[str, object]:
     private_key = _attestation_key(required=True)
     assert private_key is not None
-    signature = private_key.sign(_canonical_json(review_result).encode("utf-8"))
+    signature = private_key.sign(_canonical_json(document).encode("utf-8"))
     return {
-        **review_result,
+        **document,
         "attestation": {
             **_public_key_record(private_key),
             "signatureBase64": base64.b64encode(signature).decode("ascii"),
@@ -154,4 +162,29 @@ def review(payload: ReviewInput, token: str = Query(default="")) -> dict[str, ob
 @app.post("/api/attest")
 def attest(payload: ReviewInput, token: str = Query(default="")) -> dict[str, object]:
     _require_service_token(token)
-    return _sign_review(_build_review(payload))
+    return _sign_document(_build_review(payload))
+
+
+@app.post("/api/threat-model")
+def threat_model(payload: ThreatModelInput, token: str = Query(default="")) -> dict[str, object]:
+    _require_service_token(token)
+    review_text = payload.action
+    if payload.context:
+        review_text += f"\nContext: {payload.context}"
+    if payload.claimed_authority:
+        review_text += f"\nClaimed authority: {payload.claimed_authority}"
+    assessment = RiskClassifier.from_env().assess(review_text)
+    result = build_threat_model(
+        workflow_name=payload.workflow_name,
+        action=payload.action,
+        context=payload.context,
+        claimed_authority=payload.claimed_authority,
+        assets=payload.assets,
+        trust_boundaries=payload.trust_boundaries,
+        controls_present=payload.controls_present,
+        nonce=payload.nonce,
+        assessment=assessment,
+        issued_at=datetime.now(timezone.utc).isoformat(),
+        policy_version=POLICY_VERSION,
+    )
+    return _sign_document(result)
