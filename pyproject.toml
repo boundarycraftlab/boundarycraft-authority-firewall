@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "BoundaryCraft Lab", email = "boundarycraftlab@proton.me" }]
 dependencies = [
   "caspian-sdk>=0.6.1,<0.7",
+  "fastapi>=0.116,<1",
   "httpx>=0.28,<1",
 ]
 
@@ -38,4 +39,3 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-

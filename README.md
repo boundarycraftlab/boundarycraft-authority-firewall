@@ -61,6 +61,19 @@ The setup command creates an instant Caspian email address and prints the offici
 URL. Authorize it for the demo workspace, run setup again to verify both connections, then
 start the listener.
 
+## Paid HTTP review endpoint
+
+The repository also exposes a stateless FastAPI service for metered marketplace calls:
+
+- `GET /api` reports service health and policy version.
+- `POST /api/review?token=...` accepts `action`, optional `context`, and optional
+  `claimed_authority` fields.
+- Each successful review returns the decision, risk score, reasons, a SHA-256 request digest,
+  and a SHA-256 receipt digest. The original action is not written to persistent storage.
+
+Set `BOUNDARYCRAFT_SERVICE_TOKEN` in the deployment environment. The paid marketplace keeps the
+full endpoint query private and proxies the buyer's JSON only after USDC settlement.
+
 ## Configuration
 
 | Variable | Purpose |
@@ -69,6 +82,7 @@ start the listener.
 | `CASPIAN_BASE_URL` | Caspian gateway; defaults to the hosted API |
 | `BOUNDARYCRAFT_EMAIL_USERNAME` | Requested agent inbox name |
 | `BOUNDARYCRAFT_DB` | SQLite state and receipt-chain path |
+| `BOUNDARYCRAFT_SERVICE_TOKEN` | Private token for the metered HTTP endpoint |
 | `FEATHERLESS_API_KEY` | Optional semantic classifier |
 | `FEATHERLESS_MODEL` | Featherless chat model ID |
 
