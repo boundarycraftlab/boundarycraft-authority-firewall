@@ -4,12 +4,15 @@ BoundaryCraft is available through PayanAgent's x402 settlement route on Base ma
 
 ## Live offers
 
+- [Ed25519-signed authority attestation](https://payanagent.com/x402/kh75w8znckf600f0vnzv63f82s8bm1rf)
+  — 2.50 USDC per call for a nonce-bound, independently verifiable decision signed by key ID
+  `5b5be3887dfe192f6bb2247e`.
 - [Authority risk review API](https://payanagent.com/x402/kh79kradp0mjddbktw2pjs4g418bmezn)
   — automated action-risk triage with SHA-256 request and receipt digests.
 - [Cross-channel firewall starter kit](https://payanagent.com/x402/kh79m8dn6sh3xs3t2b8kneb98h8bm6yq)
   — packaged public MIT reference implementation.
 
-Both offers use x402 v2 on Base (`eip155:8453`) and settle in native USDC directly to the
+All offers use x402 v2 on Base (`eip155:8453`) and settle in native USDC directly to the
 BoundaryCraft provider wallet. The marketplace payment challenge is authoritative for the exact
 amount, asset contract, network, and destination.
 
