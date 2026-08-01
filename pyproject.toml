@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "BoundaryCraft Lab", email = "boundarycraftlab@proton.me" }]
 dependencies = [
   "caspian-sdk>=0.6.1,<0.7",
+  "cryptography>=45,<47",
   "fastapi>=0.116,<1",
   "httpx>=0.28,<1",
   "uvicorn>=0.35,<1",

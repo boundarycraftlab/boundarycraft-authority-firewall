@@ -67,12 +67,19 @@ The repository also exposes a stateless FastAPI service for metered marketplace 
 
 - `GET /api` reports service health and policy version.
 - `POST /api/review?token=...` accepts `action`, optional `context`, and optional
-  `claimed_authority` fields.
+  `claimed_authority` and `nonce` fields.
+- `POST /api/attest?token=...` returns the same review plus an Ed25519 signature.
+- `GET /api/attestation-key` publishes the stable verification key and key ID.
 - Each successful review returns the decision, risk score, reasons, a SHA-256 request digest,
   and a SHA-256 receipt digest. The original action is not written to persistent storage.
 
 Set `BOUNDARYCRAFT_SERVICE_TOKEN` in the deployment environment. The paid marketplace keeps the
 full endpoint query private and proxies the buyer's JSON only after USDC settlement.
+
+For signed attestations, set `BOUNDARYCRAFT_ATTESTATION_PRIVATE_KEY` to the Base64 encoding of a
+raw 32-byte Ed25519 private key. The signature covers the UTF-8 JSON result without the
+`attestation` member, serialized with sorted keys and compact separators. Consumers should pin
+the `keyId` returned by `/api/attestation-key`; the private key never leaves the service.
 
 ## Configuration
 
@@ -83,6 +90,7 @@ full endpoint query private and proxies the buyer's JSON only after USDC settlem
 | `BOUNDARYCRAFT_EMAIL_USERNAME` | Requested agent inbox name |
 | `BOUNDARYCRAFT_DB` | SQLite state and receipt-chain path |
 | `BOUNDARYCRAFT_SERVICE_TOKEN` | Private token for the metered HTTP endpoint |
+| `BOUNDARYCRAFT_ATTESTATION_PRIVATE_KEY` | Base64 raw Ed25519 signing key for portable attestations |
 | `FEATHERLESS_API_KEY` | Optional semantic classifier |
 | `FEATHERLESS_MODEL` | Featherless chat model ID |
 

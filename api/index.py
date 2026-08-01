@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -8,6 +9,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -19,12 +22,15 @@ if str(SRC_ROOT) not in sys.path:
 from boundarycraft.classifier import RiskClassifier  # noqa: E402
 
 POLICY_VERSION = "boundarycraft-authority-v1"
+ATTESTATION_SCHEMA = "boundarycraft-ed25519-attestation-v1"
+CANONICALIZATION = "utf8-json-sort-keys-v1"
 
 
 class ReviewInput(BaseModel):
     action: str = Field(min_length=1, max_length=6000)
     context: str | None = Field(default=None, max_length=3000)
     claimed_authority: str | None = Field(default=None, max_length=1000)
+    nonce: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 app = FastAPI(
@@ -40,17 +46,52 @@ def health() -> dict[str, str]:
         "service": "BoundaryCraft Authority Firewall",
         "status": "ok",
         "policyVersion": POLICY_VERSION,
+        "attestationSchema": ATTESTATION_SCHEMA,
     }
 
 
-@app.post("/api/review")
-def review(payload: ReviewInput, token: str = Query(default="")) -> dict[str, object]:
+def _require_service_token(token: str) -> None:
     expected_token = os.getenv("BOUNDARYCRAFT_SERVICE_TOKEN", "")
     if not expected_token:
         raise HTTPException(status_code=503, detail="service token is not configured")
     if not token or not hmac.compare_digest(token, expected_token):
         raise HTTPException(status_code=401, detail="invalid service token")
 
+
+def _canonical_json(value: dict[str, object]) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _attestation_key(*, required: bool) -> Ed25519PrivateKey | None:
+    encoded_key = os.getenv("BOUNDARYCRAFT_ATTESTATION_PRIVATE_KEY", "")
+    if not encoded_key:
+        if required:
+            raise HTTPException(status_code=503, detail="attestation key is not configured")
+        return None
+    try:
+        raw_key = base64.b64decode(encoded_key, validate=True)
+        if len(raw_key) != 32:
+            raise ValueError("Ed25519 private keys must contain 32 raw bytes")
+        return Ed25519PrivateKey.from_private_bytes(raw_key)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="attestation key is invalid") from exc
+
+
+def _public_key_record(private_key: Ed25519PrivateKey) -> dict[str, str]:
+    public_bytes = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    return {
+        "algorithm": "Ed25519",
+        "canonicalization": CANONICALIZATION,
+        "keyId": hashlib.sha256(public_bytes).hexdigest()[:24],
+        "publicKeyBase64": base64.b64encode(public_bytes).decode("ascii"),
+        "schema": ATTESTATION_SCHEMA,
+    }
+
+
+def _build_review(payload: ReviewInput) -> dict[str, object]:
     review_text = payload.action
     if payload.context:
         review_text += f"\nContext: {payload.context}"
@@ -59,24 +100,58 @@ def review(payload: ReviewInput, token: str = Query(default="")) -> dict[str, ob
 
     assessment = RiskClassifier.from_env().assess(review_text)
     issued_at = datetime.now(timezone.utc).isoformat()
-    request_hash = hashlib.sha256(review_text.encode("utf-8")).hexdigest()
+    request_body: dict[str, object] = {
+        "action": payload.action,
+        "claimedAuthority": payload.claimed_authority,
+        "context": payload.context,
+        "nonce": payload.nonce,
+    }
+    request_hash = hashlib.sha256(_canonical_json(request_body).encode("utf-8")).hexdigest()
     receipt_body = {
         "decision": assessment.decision.value,
-        "score": assessment.score,
-        "summary": assessment.summary,
-        "reasons": list(assessment.reasons),
-        "source": assessment.source,
-        "policyVersion": POLICY_VERSION,
-        "requestSha256": request_hash,
         "issuedAt": issued_at,
+        "nonce": payload.nonce,
+        "policyVersion": POLICY_VERSION,
+        "reasons": list(assessment.reasons),
+        "requestSha256": request_hash,
+        "score": assessment.score,
+        "schema": ATTESTATION_SCHEMA,
+        "source": assessment.source,
+        "summary": assessment.summary,
     }
-    canonical_receipt = json.dumps(
-        receipt_body,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
     return {
         **receipt_body,
-        "receiptSha256": hashlib.sha256(canonical_receipt.encode("utf-8")).hexdigest(),
+        "receiptSha256": hashlib.sha256(_canonical_json(receipt_body).encode("utf-8")).hexdigest(),
     }
+
+
+def _sign_review(review_result: dict[str, object]) -> dict[str, object]:
+    private_key = _attestation_key(required=True)
+    assert private_key is not None
+    signature = private_key.sign(_canonical_json(review_result).encode("utf-8"))
+    return {
+        **review_result,
+        "attestation": {
+            **_public_key_record(private_key),
+            "signatureBase64": base64.b64encode(signature).decode("ascii"),
+        },
+    }
+
+
+@app.get("/api/attestation-key")
+def attestation_key() -> dict[str, str]:
+    private_key = _attestation_key(required=True)
+    assert private_key is not None
+    return _public_key_record(private_key)
+
+
+@app.post("/api/review")
+def review(payload: ReviewInput, token: str = Query(default="")) -> dict[str, object]:
+    _require_service_token(token)
+    return _build_review(payload)
+
+
+@app.post("/api/attest")
+def attest(payload: ReviewInput, token: str = Query(default="")) -> dict[str, object]:
+    _require_service_token(token)
+    return _sign_review(_build_review(payload))
