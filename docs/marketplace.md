@@ -4,6 +4,10 @@ BoundaryCraft is available through PayanAgent's x402 settlement route on Base ma
 
 ## Live offers
 
+- [Ed25519-signed authority threat model](https://payanagent.com/x402/kh7dyz0sb8w224nwyzz5hasgah8bmsec)
+  — 25 USDC for one automated, structured authority threat model with prioritized attack
+  scenarios, required controls, verification tests, request/receipt hashes, and a signature
+  pinned to key ID `5b5be3887dfe192f6bb2247e`.
 - [Ed25519-signed authority attestation](https://payanagent.com/x402/kh75w8znckf600f0vnzv63f82s8bm1rf)
   — 2.50 USDC per call for a nonce-bound, independently verifiable decision signed by key ID
   `5b5be3887dfe192f6bb2247e`.
