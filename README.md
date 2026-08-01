@@ -81,6 +81,14 @@ raw 32-byte Ed25519 private key. The signature covers the UTF-8 JSON result with
 `attestation` member, serialized with sorted keys and compact separators. Consumers should pin
 the `keyId` returned by `/api/attestation-key`; the private key never leaves the service.
 
+The package includes a verifier that authenticates the payload and rejects a substituted key:
+
+```python
+from boundarycraft.attestation import verify_attestation
+
+verified = verify_attestation(result, pinned_key_id="5b5be3887dfe192f6bb2247e")
+```
+
 ## Configuration
 
 | Variable | Purpose |
