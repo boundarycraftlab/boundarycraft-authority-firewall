@@ -71,6 +71,8 @@ The repository also exposes a stateless FastAPI service for metered marketplace 
 - `POST /api/attest?token=...` returns the same review plus an Ed25519 signature.
 - `POST /api/threat-model?token=...` returns a signed, structured authority threat model for
   one workflow, including prioritized abuse cases, required controls, and verification tests.
+- `POST /api/payment-proof?token=...` verifies one exact native-USDC `Transfer` on Base using
+  the official contract, expected recipient, amount, successful receipt, and confirmations.
 - `GET /api/attestation-key` publishes the stable verification key and key ID.
 - Each successful review returns the decision, risk score, reasons, a SHA-256 request digest,
   and a SHA-256 receipt digest. The original action is not written to persistent storage.
@@ -88,6 +90,13 @@ The threat-model endpoint accepts `workflow_name`, `action`, and optional `conte
 deterministic rules-based analysis of authorization, tampering, replay, state-change, payment,
 deployment, destructive, publication, and access risks that apply to the submitted workflow. It
 does not claim to be an exhaustive security audit, penetration test, or certification.
+
+The payment-proof endpoint accepts `tx_hash`, `expected_recipient`, `expected_amount_usdc`,
+optional `min_confirmations`, and optional `nonce`. It fails closed unless the RPC reports Base
+chain ID 8453, the transaction succeeded, the native USDC contract emitted an exact matching
+`Transfer`, and the requested confirmation count is satisfied. The signed result distinguishes
+native Base USDC from ETH, bridged tokens, other contracts, other recipients, and pending or
+failed transactions.
 
 The package includes a verifier that authenticates the payload and rejects a substituted key:
 
@@ -107,6 +116,7 @@ verified = verify_attestation(result, pinned_key_id="5b5be3887dfe192f6bb2247e")
 | `BOUNDARYCRAFT_DB` | SQLite state and receipt-chain path |
 | `BOUNDARYCRAFT_SERVICE_TOKEN` | Private token for the metered HTTP endpoint |
 | `BOUNDARYCRAFT_ATTESTATION_PRIVATE_KEY` | Base64 raw Ed25519 signing key for portable attestations |
+| `BOUNDARYCRAFT_BASE_RPC_URL` | Optional Base mainnet JSON-RPC endpoint for payment proofs |
 | `FEATHERLESS_API_KEY` | Optional semantic classifier |
 | `FEATHERLESS_MODEL` | Featherless chat model ID |
 

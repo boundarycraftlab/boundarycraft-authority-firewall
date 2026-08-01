@@ -7,12 +7,13 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -20,6 +21,10 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from boundarycraft.classifier import RiskClassifier  # noqa: E402
+from boundarycraft.payment_proof import (  # noqa: E402
+    PaymentProofRpcError,
+    verify_base_usdc_payment,
+)
 from boundarycraft.threat_model import build_threat_model  # noqa: E402
 
 POLICY_VERSION = "boundarycraft-authority-v1"
@@ -39,6 +44,22 @@ class ThreatModelInput(ReviewInput):
     assets: list[str] = Field(default_factory=list, max_length=20)
     trust_boundaries: list[str] = Field(default_factory=list, max_length=20)
     controls_present: list[str] = Field(default_factory=list, max_length=20)
+
+
+class PaymentProofInput(BaseModel):
+    tx_hash: str = Field(pattern=r"^0x[0-9a-fA-F]{64}$")
+    expected_recipient: str = Field(pattern=r"^0x[0-9a-fA-F]{40}$")
+    expected_amount_usdc: Decimal = Field(gt=0)
+    min_confirmations: int = Field(default=1, ge=0, le=100)
+    nonce: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("expected_amount_usdc")
+    @classmethod
+    def amount_has_native_usdc_precision(cls, value: Decimal) -> Decimal:
+        scaled = value * Decimal(1_000_000)
+        if scaled != scaled.to_integral_value():
+            raise ValueError("expected_amount_usdc supports at most 6 decimal places")
+        return value
 
 
 app = FastAPI(
@@ -187,4 +208,22 @@ def threat_model(payload: ThreatModelInput, token: str = Query(default="")) -> d
         issued_at=datetime.now(timezone.utc).isoformat(),
         policy_version=POLICY_VERSION,
     )
+    return _sign_document(result)
+
+
+@app.post("/api/payment-proof")
+def payment_proof(payload: PaymentProofInput, token: str = Query(default="")) -> dict[str, object]:
+    _require_service_token(token)
+    try:
+        result = verify_base_usdc_payment(
+            tx_hash=payload.tx_hash,
+            expected_recipient=payload.expected_recipient,
+            expected_amount_raw=int(payload.expected_amount_usdc * Decimal(1_000_000)),
+            min_confirmations=payload.min_confirmations,
+            nonce=payload.nonce,
+            issued_at=datetime.now(timezone.utc).isoformat(),
+            rpc_url=os.getenv("BOUNDARYCRAFT_BASE_RPC_URL", "https://mainnet.base.org"),
+        )
+    except PaymentProofRpcError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return _sign_document(result)
