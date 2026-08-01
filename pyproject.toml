@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "boundarycraft-authority-firewall"
+version = "0.1.0"
+description = "A cross-channel authority firewall for AI agents, powered by Caspian."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "BoundaryCraft Lab", email = "boundarycraftlab@proton.me" }]
+dependencies = [
+  "caspian-sdk>=0.6.1,<0.7",
+  "httpx>=0.28,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+boundarycraft = "boundarycraft.app:main"
+boundarycraft-setup = "boundarycraft.setup:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boundarycraft"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
